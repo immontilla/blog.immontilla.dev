@@ -1,0 +1,68 @@
+executors:
+  aws-executor:
+    docker:
+      - image: cimg/ruby:3.1.0-browsers
+    working_directory: ~/www/
+
+references:
+  deploy_to_s3: &deploy_to_s3
+    run:
+      name: Upload to s3
+      command: |
+        aws s3 sync _site "s3://$S3_BUCKET_NAME" --exclude LICENSE --exclude README.md --delete
+  clear_cloudfront_cache: &clear_cloudfront_cache
+    run:
+      name: Clear CloudFront cache
+      command: |
+        aws cloudfront create-invalidation --distribution-id "$CLOUD_FRONT_DIST_ID" --paths '/*'
+
+version: 2.1
+
+orbs:
+  aws-cli: circleci/aws-cli@2.1.0
+  bundler: boxt/bundler@0.7.0
+
+jobs:
+  build:
+    executor: aws-executor
+    steps:
+      - checkout
+      - run:
+          name: "Bundle fix"
+          command: gem update bundler
+      - bundler/install
+      - run:
+          name: "Build site"
+          command: bundle exec jekyll build --trace --lsi --strict_front_matter --profile
+      - persist_to_workspace:
+          root: _site
+          paths:
+            - ""
+  deploy:
+    executor: aws-executor
+    environment:
+      S3_BUCKET_NAME: blog.immontilla.dev
+      CLOUD_FRONT_DIST_ID: EDH49X421JPIX
+    steps:
+      - attach_workspace:
+          at: ~/www/_site
+      - aws-cli/setup:
+          aws-access-key-id: AWS_ACCESS_KEY_ID
+          aws-secret-access-key: AWS_SECRET_ACCESS_KEY
+          aws-region: AWS_DEFAULT_REGION
+      - *deploy_to_s3
+      - *clear_cloudfront_cache
+
+workflows:
+  version: 2
+  build-and-deploy:
+    jobs:
+      - build
+      - deploy:
+          context: aws-blog-immontilla-dev-context
+          requires:
+            - build
+          filters:
+            branches:
+              only:
+                - master

@@ -1,0 +1,31 @@
+title: Blog
+markdown: kramdown
+url: https://blog.immontilla.dev
+baseurl: ""
+
+author:
+  name: Iván Mauricio Montilla Figueroa
+  email: mauricio@immontilla.dev
+  image: ""
+  bio: Code. Experiences. Thoughts. Notes. Successes. Failures.
+  github: immontilla
+  twitter:
+    username: immontilla
+    card: summary
+
+plugins:
+  - jemoji
+  - jekyll-seo-tag
+  - jekyll-sitemap
+  - jekyll-feed
+
+defaults:
+  - scope:
+      path: ""
+    values:
+      layout: "post"
+  - scope:
+      path: "_posts"
+    values:
+      layout: "post"
+      permalink: /posts/:categories/:year/:month/:day/:title/
