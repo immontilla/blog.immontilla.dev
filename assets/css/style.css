@@ -18,6 +18,7 @@ html {
 }
 
 body p {
+  text-align: justify;
   font-size: 16px;
   line-height: 28px;
   color: rgba(0, 0, 0, 0.9);
