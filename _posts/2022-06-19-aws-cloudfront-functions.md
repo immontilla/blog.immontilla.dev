@@ -86,19 +86,55 @@ where Exxxxxxxxx must be replaced with the *ETag* you jotted down when you build
 
 *I recommend to use jq for JSON data filtering. With jq you can get just a property from a long JSON response. You can get it from <a href="https://stedolan.github.io/jq/download/" title="https://stedolan.github.io/jq/download/" target="_blank">here</a>.*
 
-An AWS CloudFront function is associated with a website including its ARN on the AWS CloudFront distribution configuration. To do so, we need to get these values:
+An AWS CloudFront function is associated with a website including its ARN on the AWS CloudFront distribution configuration. To do so, we need to get and save the following data into shell variables:
 
 **Distribution Id**
 ```bash
-aws cloudfront list-distributions | jq -r ".DistributionList.Items[] | {Id,AliasICPRecordals}"
+distributionId=$(aws cloudfront list-distributions | jq -r ".DistributionList.Items[] | {Id,AliasICPRecordals} | select(.AliasICPRecordals[].CNAME==\"example.com\")" | jq -r .Id) 
 ```
+replacing *example.com* with the name of the website you want to inject the security headers.
 
 **ETag**
 ```bash
-aws cloudfront describe-function --name security-headers | jq -r ".ETag"
+ETag=$(aws cloudfront describe-function --name security-headers | jq -r ".ETag")
 ```
 
 **ARN**
 ```bash
-aws cloudfront describe-function --name security-headers | jq -r ".FunctionSummary.FunctionMetadata.FunctionARN"
+ARN=$(aws cloudfront describe-function --name security-headers | jq -r ".FunctionSummary.FunctionMetadata.FunctionARN")
 ```
+
+- Get the current AWS CloudFront distribution configuration
+```bash
+aws cloudfront get-distribution-config --id $distributionId --output yaml > dist-config.yaml
+```
+
+- Replace *ETag* with *IfMatch*. This can be done with *sed* like this
+```bash
+sed -i 's/ETag/IfMatch/g' dist-config.yaml
+```
+
+- Open the file *dist-config.yaml* and edit the tag FunctionAssociations like this<br/>
+
+```yaml
+FunctionAssociations:
+  Items:
+    - EventType: viewer-response
+      FunctionARN: xxxxxxx
+  Quantity: 1
+```
+replacing xxxxxxx with the value you get from running <code>echo $ARN</code>.
+
+- Update the AWS CloudFront distribution
+```bash
+aws cloudfront update-distribution --id $distributionId --cli-input-yaml file://dist-config.yaml
+```
+
+## Verify
+
+After a few minutes, use curl to see the security headers you set
+```bash
+curl -IX GET https://example.com
+```
+replacing *https://example.com* with your website
+
